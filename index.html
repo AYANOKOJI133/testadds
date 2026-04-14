@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuizFlow - Test Your Knowledge</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --bg-secondary: #12121a;
+      --fg: #f0f0f5;
+      --muted: #6b6b7a;
+      --accent: #00d4aa;
+      --accent-dim: rgba(0, 212, 170, 0.15);
+      --card: #16161f;
+      --border: #2a2a35;
+      --correct: #22c55e;
+      --incorrect: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    h1, h2, h3, .headline {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    /* Background */
+    .bg-mesh {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .bg-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.4;
+      animation: float 20s ease-in-out infinite;
+    }
+
+    .blob-1 {
+      width: 600px;
+      height: 600px;
+      background: linear-gradient(135deg, #00d4aa 0%, #0066ff 100%);
+      top: -200px;
+      right: -200px;
+      animation-delay: 0s;
+    }
+
+    .blob-2 {
+      width: 400px;
+      height: 400px;
+      background: linear-gradient(135deg, #ff6b00 0%, #ff0066 100%);
+      bottom: -100px;
+      left: -100px;
+      animation-delay: -7s;
+    }
+
+    .blob-3 {
+      width: 300px;
+      height: 300px;
+      background: linear-gradient(135deg, #8b5cf6 0%, #00d4aa 100%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      animation-delay: -14s;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(30px, -30px) scale(1.05); }
+      66% { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    /* Grid pattern overlay */
+    .grid-pattern {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      background-image: 
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+
+    /* Screens */
+    .screen {
+      display: none;
+      position: relative;
+      z-index: 10;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .screen.active {
+      display: flex;
+      flex-direction: column;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Staggered reveal */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      animation: reveal 0.6s ease-out forwards;
+    }
+
+    @keyframes reveal {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .card-interactive:hover {
+      border-color: var(--accent);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 212, 170, 0.1);
+    }
+
+    /* Buttons */
+    .btn {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 500;
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(0, 212, 170, 0.3);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--fg);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Options */
+    .option {
+      background: var(--bg-secondary);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .option:hover:not(.selected):not(.correct):not(.incorrect) {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .option.selected {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .option.correct {
+      border-color: var(--correct);
+      background: rgba(34, 197, 94, 0.15);
+    }
+
+    .option.incorrect {
+      border-color: var(--incorrect);
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    /* Progress bar */
+    .progress-track {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #00ffcc);
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    /* Timer */
+    .timer-ring {
+      stroke-dasharray: 283;
+      stroke-dashoffset: 0;
+      transform: rotate(-90deg);
+      transform-origin: center;
+      transition: stroke-dashoffset 1s linear;
+    }
+
+    .timer-ring.warning {
+      stroke: var(--incorrect);
+    }
+
+    /* Score circle */
+    .score-ring {
+      stroke-dasharray: 440;
+      stroke-dashoffset: 440;
+      animation: scoreReveal 1.5s ease-out forwards;
+      animation-delay: 0.5s;
+    }
+
+    @keyframes scoreReveal {
+      to { stroke-dashoffset: var(--offset); }
+    }
+
+    /* Category icons */
+    .category-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+    }
+
+    /* Focus states */
+    *:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .screen {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background -->
+  <div class="bg-mesh">
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    <div class="bg-blob blob-3"></div>
+  </div>
+  <div class="grid-pattern"></div>
+
+  <!-- Start Screen -->
+  <section id="startScreen" class="screen active">
+    <div class="flex-1 flex flex-col items-center justify-center max-w-4xl mx-auto w-full">
+      <!-- Logo -->
+      <div class="reveal mb-8" style="animation-delay: 0.1s">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00d4aa] to-[#0066ff] flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-[#0a0a0f]">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+              <path d="M12 17h.01"/>
+            </svg>
+          </div>
+          <span class="headline text-2xl font-bold tracking-tight">QuizFlow</span>
+        </div>
+      </div>
+
+      <!-- Headline -->
+      <div class="reveal text-center mb-12" style="animation-delay: 0.2s">
+        <h1 class="headline text-4xl md:text-6xl font-bold mb-4 leading-tight">
+          Challenge Your<br>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4aa] to-[#00ffcc]">Knowledge</span>
+        </h1>
+        <p class="text-[#6b6b7a] text-lg md:text-xl max-w-md mx-auto">
+          Select a category and test your expertise with timed questions
+        </p>
+      </div>
+
+      <!-- Categories -->
+      <div class="reveal w-full max-w-2xl" style="animation-delay: 0.3s">
+        <h3 class="text-sm font-medium text-[#6b6b7a] uppercase tracking-wider mb-4">Choose Category</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="categoryGrid">
+          <!-- Categories will be rendered here -->
+        </div>
+      </div>
+
+      <!-- Start Button -->
+      <div class="reveal mt-10" style="animation-delay: 0.4s">
+        <button class="btn btn-primary text-lg px-8 py-4" id="startBtn" disabled>
+          Select a Category to Start
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quiz Screen -->
+  <section id="quizScreen" class="screen">
+    <div class="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+      <!-- Header -->
+      <header class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-4">
+          <button class="btn btn-secondary py-2 px-4 text-sm" id="quitBtn" aria-label="Quit quiz">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <div>
+            <p class="text-sm text-[#6b6b7a]" id="categoryLabel">Category</p>
+            <p class="font-semibold" id="questionCounter">Question 1 of 10</p>
+          </div>
+        </div>
+        
+        <!-- Timer -->
+        <div class="relative w-16 h-16">
+          <svg class="w-full h-full" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="45" fill="none" stroke="var(--border)" stroke-width="6"/>
+            <circle id="timerRing" class="timer-ring" cx="50" cy="50" r="45" fill="none" stroke="var(--accent)" stroke-width="6" stroke-linecap="round"/>
+          </svg>
+          <span id="timerText" class="absolute inset-0 flex items-center justify-center font-bold text-lg">30</span>
+        </div>
+      </header>
+
+      <!-- Progress -->
+      <div class="mb-8">
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Question Card -->
+      <div class="card p-6 md:p-8 mb-6" id="questionCard">
+        <h2 class="headline text-xl md:text-2xl font-semibold leading-relaxed" id="questionText">
+          Loading question...
+        </h2>
+      </div>
+
+      <!-- Options -->
+      <div class="space-y-3 mb-8" id="optionsContainer">
+        <!-- Options will be rendered here -->
+      </div>
+
+      <!-- Next Button -->
+      <button class="btn btn-primary w-full py-4 text-lg" id="nextBtn" disabled>
+        Next Question
+      </button>
+    </div>
+  </section>
+
+  <!-- Results Screen -->
+  <section id="resultsScreen" class="screen">
+    <div class="flex-1 flex flex-col items-center justify-center max-w-lg mx-auto w-full text-center">
+      <!-- Score Circle -->
+      <div class="reveal mb-8" style="animation-delay: 0.1s">
+        <div class="relative w-48 h-48">
+          <svg class="w-full h-full" viewBox="0 0 160 160">
+            <circle cx="80" cy="80" r="70" fill="none" stroke="var(--border)" stroke-width="10"/>
+            <circle id="scoreRing" class="score-ring" cx="80" cy="80" r="70" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" style="--offset: 440"/>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-center">
+            <span id="scorePercent" class="headline text-5xl font-bold">0%</span>
+            <span class="text-[#6b6b7a] text-sm">Score</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Result Message -->
+      <div class="reveal mb-8" style="animation-delay: 0.3s">
+        <h2 class="headline text-3xl md:text-4xl font-bold mb-2" id="resultTitle">Great Job!</h2>
+        <p class="text-[#6b6b7a]" id="resultMessage">You answered 8 out of 10 questions correctly</p>
+      </div>
+
+      <!-- Stats -->
+      <div class="reveal w-full grid grid-cols-3 gap-4 mb-10" style="animation-delay: 0.4s">
+        <div class="card p-4">
+          <p class="text-2xl font-bold text-[#22c55e]" id="correctCount">0</p>
+          <p class="text-sm text-[#6b6b7a]">Correct</p>
+        </div>
+        <div class="card p-4">
+          <p class="text-2xl font-bold text-[#ef4444]" id="incorrectCount">0</p>
+          <p class="text-sm text-[#6b6b7a]">Incorrect</p>
+        </div>
+        <div class="card p-4">
+          <p class="text-2xl font-bold text-[#00d4aa]" id="avgTime">0s</p>
+          <p class="text-sm text-[#6b6b7a]">Avg Time</p>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="reveal flex flex-col sm:flex-row gap-4 w-full" style="animation-delay: 0.5s">
+        <button class="btn btn-secondary flex-1 py-4" id="homeBtn">
+          Back to Home
+        </button>
+        <button class="btn btn-primary flex-1 py-4" id="retryBtn">
+          Try Again
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Quiz Data
+    const categories = [
+      {
+        id: 'science',
+        name: 'Science',
+        icon: '🔬',
+        color: '#00d4aa',
+        questions: [
+          { q: 'What is the chemical symbol for gold?', options: ['Au', 'Ag', 'Fe', 'Cu'], answer: 0 },
+          { q: 'How many planets are in our solar system?', options: ['7', '8', '9', '10'], answer: 1 },
+          { q: 'What is the hardest natural substance on Earth?', options: ['Gold', 'Iron', 'Diamond', 'Platinum'], answer: 2 },
+          { q: 'What gas do plants absorb from the atmosphere?', options: ['Oxygen', 'Nitrogen', 'Carbon Dioxide', 'Hydrogen'], answer: 2 },
+          { q: 'What is the speed of light in km/s approximately?', options: ['150,000', '300,000', '450,000', '600,000'], answer: 1 },
+          { q: 'Which planet is known as the Red Planet?', options: ['Venus', 'Jupiter', 'Mars', 'Saturn'], answer: 2 },
+          { q: 'What is the largest organ in the human body?', options: ['Heart', 'Liver', 'Brain', 'Skin'], answer: 3 },
+          { q: 'What is the atomic number of Carbon?', options: ['4', '6', '8', '12'], answer: 1 },
+          { q: 'Which force keeps us on the ground?', options: ['Friction', 'Magnetic', 'Gravity', 'Electrical'], answer: 2 },
+          { q: 'What is H2O commonly known as?', options: ['Hydrogen', 'Water', 'Oxygen', 'Helium'], answer: 1 }
+        ]
+      },
+      {
+        id: 'history',
+        name: 'History',
+        icon: '📜',
+        color: '#ff6b00',
+        questions: [
+          { q: 'In what year did World War II end?', options: ['1943', '1944', '1945', '1946'], answer: 2 },
+          { q: 'Who was the first President of the United States?', options: ['Thomas Jefferson', 'John Adams', 'George Washington', 'Benjamin Franklin'], answer: 2 },
+          { q: 'The Great Wall of China was primarily built to protect against?', options: ['Mongols', 'Japanese', 'Russians', 'Koreans'], answer: 0 },
+          { q: 'Which ancient civilization built the pyramids?', options: ['Romans', 'Greeks', 'Egyptians', 'Mayans'], answer: 2 },
+          { q: 'In which year did the Titanic sink?', options: ['1910', '1912', '1914', '1916'], answer: 1 },
+          { q: 'Who painted the Mona Lisa?', options: ['Michelangelo', 'Leonardo da Vinci', 'Raphael', 'Donatello'], answer: 1 },
+          { q: 'What was the name of the first satellite in space?', options: ['Apollo', 'Sputnik', 'Explorer', 'Voyager'], answer: 1 },
+          { q: 'The French Revolution began in which year?', options: ['1776', '1789', '1799', '1812'], answer: 1 },
+          { q: 'Who discovered America in 1492?', options: ['Vasco da Gama', 'Ferdinand Magellan', 'Christopher Columbus', 'Amerigo Vespucci'], answer: 2 },
+          { q: 'The Berlin Wall fell in which year?', options: ['1987', '1988', '1989', '1990'], answer: 2 }
+        ]
+      },
+      {
+        id: 'technology',
+        name: 'Technology',
+        icon: '💻',
+        color: '#8b5cf6',
+        questions: [
+          { q: 'What does CPU stand for?', options: ['Central Processing Unit', 'Computer Personal Unit', 'Central Program Utility', 'Core Processing Unit'], answer: 0 },
+          { q: 'Who is the co-founder of Microsoft?', options: ['Steve Jobs', 'Bill Gates', 'Mark Zuckerberg', 'Jeff Bezos'], answer: 1 },
+          { q: 'What year was the iPhone first released?', options: ['2005', '2006', '2007', '2008'], answer: 2 },
+          { q: 'What does HTML stand for?', options: ['Hyper Text Markup Language', 'High Tech Modern Language', 'Hyper Transfer Markup Language', 'Home Tool Markup Language'], answer: 0 },
+          { q: 'Which company created the Android operating system?', options: ['Apple', 'Microsoft', 'Google', 'Samsung'], answer: 2 },
+          { q: 'What is the main function of RAM?', options: ['Long-term storage', 'Short-term memory', 'Graphics processing', 'Network connectivity'], answer: 1 },
+          { q: 'What does URL stand for?', options: ['Universal Resource Locator', 'Uniform Resource Locator', 'Universal Reference Link', 'Unified Resource Link'], answer: 1 },
+          { q: 'Which programming language is known for its coffee cup logo?', options: ['Python', 'JavaScript', 'Java', 'C++'], answer: 2 },
+          { q: 'What does SSD stand for?', options: ['Solid State Drive', 'Super Speed Disk', 'System Storage Device', 'Secure Storage Drive'], answer: 0 },
+          { q: 'Who invented the World Wide Web?', options: ['Bill Gates', 'Steve Jobs', 'Tim Berners-Lee', 'Mark Zuckerberg'], answer: 2 }
+        ]
+      },
+      {
+        id: 'geography',
+        name: 'Geography',
+        icon: '🌍',
+        color: '#0066ff',
+        questions: [
+          { q: 'What is the largest country by area?', options: ['China', 'USA', 'Canada', 'Russia'], answer: 3 },
+          { q: 'Which river is the longest in the world?', options: ['Amazon', 'Nile', 'Yangtze', 'Mississippi'], answer: 1 },
+          { q: 'What is the capital of Australia?', options: ['Sydney', 'Melbourne', 'Canberra', 'Brisbane'], answer: 2 },
+          { q: 'Which continent has the most countries?', options: ['Asia', 'Europe', 'Africa', 'South America'], answer: 2 },
+          { q: 'What is the smallest country in the world?', options: ['Monaco', 'Vatican City', 'San Marino', 'Liechtenstein'], answer: 1 },
+          { q: 'Mount Everest is located in which mountain range?', options: ['Alps', 'Andes', 'Himalayas', 'Rockies'], answer: 2 },
+          { q: 'Which ocean is the largest?', options: ['Atlantic', 'Indian', 'Arctic', 'Pacific'], answer: 3 },
+          { q: 'What is the capital of Japan?', options: ['Kyoto', 'Osaka', 'Tokyo', 'Hiroshima'], answer: 2 },
+          { q: 'Which desert is the largest in the world?', options: ['Gobi', 'Sahara', 'Arabian', 'Antarctic'], answer: 3 },
+          { q: 'Which country has the most islands?', options: ['Indonesia', 'Philippines', 'Sweden', 'Japan'], answer: 2 }
+        ]
+      }
+    ];
+
+    // State
+    let currentCategory = null;
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let selectedAnswer = null;
+    let timeLeft = 30;
+    let timerInterval = null;
+    let questionTimes = [];
+
+    // DOM Elements
+    const startScreen = document.getElementById('startScreen');
+    const quizScreen = document.getElementById('quizScreen');
+    const resultsScreen = document.getElementById('resultsScreen');
+    const categoryGrid = document.getElementById('categoryGrid');
+    const startBtn = document.getElementById('startBtn');
+    const questionText = document.getElementById('questionText');
+    const optionsContainer = document.getElementById('optionsContainer');
+    const questionCounter = document.getElementById('questionCounter');
+    const categoryLabel = document.getElementById('categoryLabel');
+    const progressFill = document.getElementById('progressFill');
+    const timerRing = document.getElementById('timerRing');
+    const timerText = document.getElementById('timerText');
+    const nextBtn = document.getElementById('nextBtn');
+    const quitBtn = document.getElementById('quitBtn');
+    const homeBtn = document.getElementById('homeBtn');
+    const retryBtn = document.getElementById('retryBtn');
+
+    // Render Categories
+    function renderCategories() {
+      categoryGrid.innerHTML = categories.map((cat, index) => `
+        <button 
+          class="card card-interactive p-4 flex items-center gap-4 text-left"
+          data-category="${cat.id}"
+          style="animation-delay: ${0.3 + index * 0.1}s"
+          aria-label="Select ${cat.name} category"
+        >
+          <div class="category-icon" style="background: ${cat.color}20;">
+            <span>${cat.icon}</span>
+          </div>
+          <div class="flex-1">
+            <h4 class="font-semibold">${cat.name}</h4>
+            <p class="text-sm text-[#6b6b7a]">${cat.questions.length} questions</p>
+          </div>
+          <div class="w-6 h-6 rounded-full border-2 border-[var(--border)] flex items-center justify-center category-check">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="text-[var(--accent)] opacity-0">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+        </button>
+      `).join('');
+
+      // Add click handlers
+      document.querySelectorAll('[data-category]').forEach(btn => {
+        btn.addEventListener('click', () => selectCategory(btn.dataset.category));
+      });
+    }
+
+    // Select Category
+    function selectCategory(categoryId) {
+      currentCategory = categories.find(c => c.id === categoryId);
+      
+      // Update UI
+      document.querySelectorAll('[data-category]').forEach(btn => {
+        const isSelected = btn.dataset.category === categoryId;
+        btn.classList.toggle('selected', isSelected);
+        const check = btn.querySelector('.category-check svg');
+        check.style.opacity = isSelected ? '1' : '0';
+      });
+
+      startBtn.disabled = false;
+      startBtn.textContent = `Start ${currentCategory.name} Quiz`;
+    }
+
+    // Start Quiz
+    function startQuiz() {
+      currentQuestionIndex = 0;
+      score = 0;
+      selectedAnswer = null;
+      questionTimes = [];
+      
+      showScreen('quiz');
+      categoryLabel.textContent = currentCategory.name;
+      loadQuestion();
+    }
+
+    // Load Question
+    function loadQuestion() {
+      const question = currentCategory.questions[currentQuestionIndex];
+      const total = currentCategory.questions.length;
+      
+      questionCounter.textContent = `Question ${currentQuestionIndex + 1} of ${total}`;
+      progressFill.style.width = `${((currentQuestionIndex) / total) * 100}%`;
+      questionText.textContent = question.q;
+      
+      // Render options
+      optionsContainer.innerHTML = question.options.map((opt, i) => `
+        <button class="option w-full text-left flex items-center gap-4" data-index="${i}" aria-label="Option ${i + 1}: ${opt}">
+          <span class="w-8 h-8 rounded-lg bg-[var(--border)] flex items-center justify-center text-sm font-medium">
+            ${String.fromCharCode(65 + i)}
+          </span>
+          <span>${opt}</span>
+        </button>
+      `).join('');
+
+      // Add click handlers
+      document.querySelectorAll('.option').forEach(btn => {
+        btn.addEventListener('click', () => selectOption(parseInt(btn.dataset.index)));
+      });
+
+      // Reset state
+      selectedAnswer = null;
+      nextBtn.disabled = true;
+      nextBtn.textContent = currentQuestionIndex === total - 1 ? 'See Results' : 'Next Question';
+      
+      // Start timer
+      startTimer();
+    }
+
+    // Start Timer
+    function startTimer() {
+      timeLeft = 30;
+      updateTimerDisplay();
+      
+      if (timerInterval) clearInterval(timerInterval);
+      
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        updateTimerDisplay();
+        
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          timeUp();
+        }
+      }, 1000);
+    }
+
+    // Update Timer Display
+    function updateTimerDisplay() {
+      timerText.textContent = timeLeft;
+      const offset = 283 - (283 * timeLeft / 30);
+      timerRing.style.strokeDashoffset = offset;
+      
+      if (timeLeft <= 10) {
+        timerRing.classList.add('warning');
+      } else {
+        timerRing.classList.remove('warning');
+      }
+    }
+
+    // Time Up
+    function timeUp() {
+      questionTimes.push(30);
+      showCorrectAnswer();
+      nextBtn.disabled = false;
+    }
+
+    // Select Option
+    function selectOption(index) {
+      if (selectedAnswer !== null) return;
+      
+      selectedAnswer = index;
+      clearInterval(timerInterval);
+      questionTimes.push(30 - timeLeft);
+      
+      const question = currentCategory.questions[currentQuestionIndex];
+      const isCorrect = index === question.answer;
+      
+      if (isCorrect) score++;
+      
+      // Show result
+      document.querySelectorAll('.option').forEach((btn, i) => {
+        if (i === question.answer) {
+          btn.classList.add('correct');
+        } else if (i === index && !isCorrect) {
+          btn.classList.add('incorrect');
+        }
+      });
+      
+      nextBtn.disabled = false;
+    }
+
+    // Show Correct Answer
+    function showCorrectAnswer() {
+      const question = currentCategory.questions[currentQuestionIndex];
+      document.querySelectorAll('.option').forEach((btn, i) => {
+        if (i === question.answer) {
+          btn.classList.add('correct');
+        }
+      });
+    }
+
+    // Next Question
+    function nextQuestion() {
+      currentQuestionIndex++;
+      
+      if (currentQuestionIndex >= currentCategory.questions.length) {
+        showResults();
+      } else {
+        loadQuestion();
+      }
+    }
+
+    // Show Results
+    function showResults() {
+      clearInterval(timerInterval);
+      
+      const total = currentCategory.questions.length;
+      const percent = Math.round((score / total) * 100);
+      const avgTime = questionTimes.length > 0 
+        ? (questionTimes.reduce((a, b) => a + b, 0) / questionTimes.length).toFixed(1)
+        : 0;
+      
+      // Update UI
+      document.getElementById('scorePercent').textContent = `${percent}%`;
+      document.getElementById('correctCount').textContent = score;
+      document.getElementById('incorrectCount').textContent = total - score;
+      document.getElementById('avgTime').textContent = `${avgTime}s`;
+      document.getElementById('resultMessage').textContent = `You answered ${score} out of ${total} questions correctly`;
+      
+      // Score ring
+      const offset = 440 - (440 * percent / 100);
+      document.getElementById('scoreRing').style.setProperty('--offset', offset);
+      
+      // Result title
+      let title = 'Keep Practicing!';
+      if (percent >= 90) title = 'Outstanding!';
+      else if (percent >= 70) title = 'Great Job!';
+      else if (percent >= 50) title = 'Good Effort!';
+      document.getElementById('resultTitle').textContent = title;
+      
+      showScreen('results');
+    }
+
+    // Show Screen
+    function showScreen(screen) {
+      startScreen.classList.remove('active');
+      quizScreen.classList.remove('active');
+      resultsScreen.classList.remove('active');
+      
+      if (screen === 'start') startScreen.classList.add('active');
+      else if (screen === 'quiz') quizScreen.classList.add('active');
+      else if (screen === 'results') resultsScreen.classList.add('active');
+    }
+
+    // Event Listeners
+    startBtn.addEventListener('click', startQuiz);
+    nextBtn.addEventListener('click', nextQuestion);
+    quitBtn.addEventListener('click', () => {
+      clearInterval(timerInterval);
+      showScreen('start');
+    });
+    homeBtn.addEventListener('click', () => showScreen('start'));
+    retryBtn.addEventListener('click', startQuiz);
+
+    // Initialize
+    renderCategories();
+  </script>
+</body>
+</html>
